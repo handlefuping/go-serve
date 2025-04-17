@@ -21,14 +21,13 @@ type RegistryStruct struct {
 
 func (registry *RegistryStruct) add(registration RegistrationStruct) {
 	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
 	registry.registrations = append(registry.registrations, registration)
+	registry.mutex.Unlock()
 	registry.sendRequireServices(registration)
 }
 
 func (registry *RegistryStruct) sendRequireServices (registration RegistrationStruct) {
 	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
 	var patch patchStruct
 	for _, reg := range registry.registrations {
 		for _, serviceName := range registration.RequiredServices {
@@ -37,6 +36,7 @@ func (registry *RegistryStruct) sendRequireServices (registration RegistrationSt
 			}
 		}
 	}
+	registry.mutex.Unlock()
 	registry.sendPatch(patch, registration.ServiceUpdateUrl)
 
 } 
@@ -69,7 +69,7 @@ func Run() {
 
 type RegistryHandlerStruct struct{} 
 
-func (rh *RegistryHandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (registryHandler *RegistryHandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodPost: 
 			msg, err := io.ReadAll(r.Body)
@@ -77,13 +77,13 @@ func (rh *RegistryHandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Reques
 				w.WriteHeader(http.StatusBadRequest)
 				return 
 			}
-			var r RegistrationStruct
-			err = json.Unmarshal(msg, &r)
+			var registration RegistrationStruct
+			err = json.Unmarshal(msg, &registration)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return 
 			}
-			registry.add(r)
+			registry.add(registration)
 			w.WriteHeader(http.StatusOK)
 		case http.MethodDelete:
 			url, err := io.ReadAll(r.Body)
@@ -99,13 +99,4 @@ func (rh *RegistryHandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Reques
 }
 
 
-type patchEntryStruct struct {
-	serviceName ServiceName
-	serviceUrl ServiceUrl
-}
-
-type patchStruct struct {
-	added []patchEntryStruct
-	removed []patchEntryStruct
-}
 

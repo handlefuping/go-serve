@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-serve/registry"
 	"net/http"
+	"strings"
 )
 
 func Start(ctx context.Context, registration registry.RegistrationStruct, registerHandler func()) context.Context {
@@ -20,9 +21,9 @@ func startService (ctx context.Context, registration registry.RegistrationStruct
 	ctx, cancel := context.WithCancel(ctx)
 
 	go func() {
-		http.ListenAndServe(string(registration.ServiceUrl), nil)
+		afterUrl, _ := strings.CutPrefix(string(registration.ServiceUrl), "http://")
+		http.ListenAndServe(afterUrl, nil)
 		registry.UnRegistry(registration)
-		
 		cancel()
 	}()
 	go func ()  {

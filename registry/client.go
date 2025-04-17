@@ -14,8 +14,8 @@ func RegistryService(registration RegistrationStruct) {
 		log.Println("stringify registration error")
 		return
 	}
-	http.Handle(string(registration.ServiceUpdateUrl), &updateHandlerStruct{})
-	res, err := http.Post(string(registration.ServiceUrl), "application/json", bytes.NewReader(b))
+	// http.Handle(string(registration.ServiceUpdateUrl), &updateHandlerStruct{})
+	res, err := http.Post(ServerAddress, "application/json", bytes.NewReader(b))
 	if err != nil {
 		log.Println("registry service error")
 	}
