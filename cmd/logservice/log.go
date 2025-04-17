@@ -11,10 +11,12 @@ import (
 
 func main() {
 	log.Run("./destination.log")
-
-	ctx := service.Start(context.Background(), registry.Registration{
-		ServiceName: "log service",
-		ServiceUrl: "localhost:8000",
+	serviceAddress := "http://localhost:8080"
+	ctx := service.Start(context.Background(), registry.RegistrationStruct{
+		ServiceName: registry.LogService,
+		ServiceUrl: registry.ServiceUrl(serviceAddress),
+		RequiredServices: make([]registry.ServiceName, 0),
+		ServiceUpdateUrl: registry.ServiceUrl(serviceAddress) + "/services",
 	}, log.LogHandler)
 
 	<- ctx.Done()

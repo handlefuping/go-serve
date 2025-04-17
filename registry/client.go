@@ -3,19 +3,19 @@ package registry
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 )
 
 
-func Registry(r Registration) {
-	b, err := json.Marshal(r)
+func RegistryService(registration RegistrationStruct) {
+	b, err := json.Marshal(registration)
 	if err != nil {
 		log.Println("stringify registration error")
 		return
 	}
-	res, err := http.Post(fmt.Sprintf("http://%v/services", r.ServiceUrl), "application/json", bytes.NewReader(b))
+	http.Handle(string(registration.ServiceUpdateUrl), &updateHandlerStruct{})
+	res, err := http.Post(string(registration.ServiceUrl), "application/json", bytes.NewReader(b))
 	if err != nil {
 		log.Println("registry service error")
 	}
@@ -27,9 +27,8 @@ func Registry(r Registration) {
 	}
 }
 
-func UnRegistry(r Registration) {
-	fmt.Println(fmt.Sprintf("http://%v/services", r.ServiceUrl))
-	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://%v/services", r.ServiceUrl), bytes.NewReader([]byte(r.ServiceUrl)))
+func UnRegistry(registration RegistrationStruct) {
+	req, err := http.NewRequest(http.MethodDelete, ServerAddress, bytes.NewReader([]byte(registration.ServiceUrl)))
 	if err != nil {
 		log.Println("unregistry service error")
 	}
@@ -43,3 +42,19 @@ func UnRegistry(r Registration) {
 	}
 
 }
+
+
+type updateHandlerStruct struct {}
+func (updateHandler updateHandlerStruct)  ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+	decoder := json.NewDecoder(r.Body)
+	var patch patchStruct
+	err := decoder.Decode(&patch)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	provider.update(patch)
+}
+

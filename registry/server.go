@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,46 +9,67 @@ import (
 	"sync"
 )
 
+const (
+	ServerPort = ":8000"
+	ServerAddress = "http://localhost" + ServerPort +  "/services"
+)
 
-
-
-type Registration struct {
-	ServiceName string
-	ServiceUrl string
+type RegistryStruct struct {
+	registrations []RegistrationStruct
+	mutex *sync.Mutex
 }
 
-type pool struct {
-	collection []Registration
-	mu *sync.Mutex
+func (registry *RegistryStruct) add(registration RegistrationStruct) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	registry.registrations = append(registry.registrations, registration)
+	registry.sendRequireServices(registration)
 }
 
-func (p *pool) add(r Registration) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.collection = append(p.collection, r)
-}
+func (registry *RegistryStruct) sendRequireServices (registration RegistrationStruct) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	var patch patchStruct
+	for _, reg := range registry.registrations {
+		for _, serviceName := range registration.RequiredServices {
+			if serviceName == reg.ServiceName {
+				patch.added = append(patch.added, patchEntryStruct{serviceName: serviceName, serviceUrl: reg.ServiceUrl})
+			}
+		}
+	}
+	registry.sendPatch(patch, registration.ServiceUpdateUrl)
 
-func (p *pool) remove(url string) {
-	for i, v := range p.collection {
-		if v.ServiceUrl == url {
-			p.mu.Lock()
-			p.collection = append(p.collection[:i], p.collection[i+1:]...)
-			p.mu.Unlock()
+} 
+func (registry *RegistryStruct) sendPatch (patch patchStruct, url ServiceUrl) {
+	bt, err:= json.Marshal(patch)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		http.Post(string(url), "application/json", bytes.NewReader(bt))
+	}
+} 
+func (registry *RegistryStruct) remove(url ServiceUrl) {
+	for index, registration := range registry.registrations {
+		if registration.ServiceUrl == url {
+			registry.mutex.Lock()
+			registry.registrations = append(registry.registrations[:index], registry.registrations[index+1:]...)
+			registry.mutex.Unlock()
 		}
 	}
 }
-var rgPool *pool
+
+var registry *RegistryStruct
 
 func Run() {
-	rgPool = &pool{
-		mu: new(sync.Mutex),
-		collection: make([]Registration, 10),
+	registry = &RegistryStruct{
+		mutex: new(sync.Mutex),
+		registrations: make([]RegistrationStruct, 1),
 	}
 }
 
-type RegistryHandler struct{} 
+type RegistryHandlerStruct struct{} 
 
-func (rh *RegistryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (rh *RegistryHandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodPost: 
 			msg, err := io.ReadAll(r.Body)
@@ -55,24 +77,35 @@ func (rh *RegistryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				return 
 			}
-			var r Registration
+			var r RegistrationStruct
 			err = json.Unmarshal(msg, &r)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return 
 			}
-			rgPool.add(r)
+			registry.add(r)
 			w.WriteHeader(http.StatusOK)
 		case http.MethodDelete:
-			fmt.Println(11222)
 			url, err := io.ReadAll(r.Body)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return 
 			}
-			rgPool.remove(string(url))
+			registry.remove(ServiceUrl(url))
 			w.WriteHeader(http.StatusOK)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 }
+
+
+type patchEntryStruct struct {
+	serviceName ServiceName
+	serviceUrl ServiceUrl
+}
+
+type patchStruct struct {
+	added []patchEntryStruct
+	removed []patchEntryStruct
+}
+

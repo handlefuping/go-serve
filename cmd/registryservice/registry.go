@@ -10,18 +10,18 @@ import (
 
 func main() {
 	registry.Run()
-	http.Handle("/services", &registry.RegistryHandler{})
+	http.Handle("/services", &registry.RegistryHandlerStruct{})
 	ch := make(chan bool)
 	go func() {
 		fmt.Println("registry service is running")
-		log.Fatal(http.ListenAndServe(":8000", nil))
+		log.Fatal(http.ListenAndServe(registry.ServerPort, nil))
 		ch <- true
 	}()
 
 	go func ()  {
 		fmt.Println("registry service is running Enter any key to stop")
 		var str string
-		fmt.Scan(&str)
+		fmt.Scanln(&str)
 		ch <- true
 	}()
 	<- ch
