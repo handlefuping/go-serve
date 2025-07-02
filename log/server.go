@@ -10,8 +10,9 @@ import (
 var log *stLog.Logger
 
 type fileLog string
-func (fl fileLog) Write(p []byte) (int, error)  {
-	f, err := os.OpenFile(string(fl), os.O_APPEND | os.O_CREATE | os.O_RDWR, 0600)
+
+func (fl fileLog) Write(p []byte) (int, error) {
+	f, err := os.OpenFile(string(fl), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return 0, err
 	}
@@ -19,14 +20,14 @@ func (fl fileLog) Write(p []byte) (int, error)  {
 	return f.Write(p)
 }
 
-func Run (des string)  {
-	log = stLog.New(fileLog(des), "go-> ", stLog.LstdFlags)
+func Run(des string) {
+	log = stLog.New(fileLog(des), "go->: ", stLog.LstdFlags)
 }
 
-func LogHandler () {
+func LogHandler() {
 	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case http.MethodPost: 
+		case http.MethodPost:
 			msg, err := io.ReadAll(r.Body)
 			if err != nil || len(msg) == 0 {
 				w.WriteHeader(http.StatusBadRequest)
