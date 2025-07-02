@@ -21,7 +21,7 @@ func (fl fileLog) Write(p []byte) (int, error) {
 }
 
 func Run(des string) {
-	log = stLog.New(fileLog(des), "go->: ", stLog.LstdFlags)
+	log = stLog.New(fileLog(des), "go:->: ", stLog.LstdFlags)
 }
 
 func LogHandler() {
